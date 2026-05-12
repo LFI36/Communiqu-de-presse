@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur de Communiqués de Presse - LFI Indre</title>
+    <!-- Tailwind CSS pour le style -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- html2pdf.js pour la génération du PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        /* Styles spécifiques pour l'aperçu A4 */
+        .a4-container {
+            background: white;
+            color: black;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            /* Dimensions de base, s'adaptera lors de l'export */
+            max-width: 210mm; 
+            margin: 0 auto;
+        }
+        
+        .pdf-content {
+            padding: 20mm;
+            min-height: 297mm;
+        }
+
+        /* Gradient LFI pour le logo textuel */
+        .text-gradient-lfi {
+            background-image: linear-gradient(to bottom right, #E81C2E, #4B1F73);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        @media (max-width: 1024px) {
+            .pdf-content {
+                min-height: auto;
+                padding: 10mm;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800 font-sans">
+
+    <!-- En-tête de l'application -->
+    <header class="bg-[#4B1F73] text-white p-4 shadow-md">
+        <div class="container mx-auto flex items-center justify-between">
+            <h1 class="text-xl font-bold flex items-center gap-2">
+                <span class="text-2xl text-[#E81C2E]">φ</span> Outil de Presse Militant - LFI 36
+            </h1>
+            <button onclick="exportPDF()" class="bg-[#E81C2E] hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow transition-colors flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+                Générer le PDF
+            </button>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-4 lg:p-8 flex flex-col lg:flex-row gap-8">
+        
+        <!-- Panneau d'édition (Gauche) -->
+        <div class="w-full lg:w-1/3 bg-white p-6 rounded-lg shadow-md h-fit lg:sticky lg:top-8">
+            <h2 class="text-lg font-bold mb-4 text-gray-700 border-b pb-2">Éditeur</h2>
+            
+            <form id="editor-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-600">Titre (optionnel)</label>
+                    <input type="text" id="input-title" placeholder="Ex: Soutien aux personnels en grève..." class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-600">Lieu et Date</label>
+                    <input type="text" id="input-date" placeholder="Ex: Châteauroux, le 15 avril 2026" class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-600">Contenu du communiqué</label>
+                    <p class="text-xs text-gray-500 mb-2">Astuce : Entourez du texte avec ** pour le mettre en <strong>**gras**</strong>.</p>
+                    <textarea id="input-content" rows="12" class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="Saisissez le texte du communiqué ici... Les sauts de ligne créent des paragraphes automatiquement."></textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold mb-1 text-gray-600">Signataire(s)</label>
+                    <input type="text" id="input-signature" value="Les insoumis.es de l'Indre" class="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                </div>
+            </form>
+        </div>
+
+        <!-- Panneau d'Aperçu (Droite) -->
+        <div class="w-full lg:w-2/3 flex justify-center overflow-x-auto pb-8">
+            <!-- Conteneur qui sera transformé en PDF -->
+            <div id="pdf-container" class="a4-container relative w-full">
+                <div class="pdf-content flex flex-col h-full">
+                    
+                    <!-- En-tête LFI Indre avec l'image -->
+                    <div class="mb-12">
+                        <img src="image_45decf.png" alt="Logo LFI Indre" class="h-32 object-contain" onerror="this.onerror=null; this.src='https://placehold.co/400x128/ffffff/4B1F73?text=Logo+introuvable+(image_45decf.png)';">
+                    </div>
+
+                    <!-- Date -->
+                    <div id="preview-date" class="text-right text-gray-600 italic mb-8 min-h-[1.5rem]"></div>
+
+                    <!-- Titre -->
+                    <h1 id="preview-title" class="text-2xl font-bold text-center mb-8 text-[#4B1F73] min-h-[2rem]"></h1>
+
+                    <!-- Corps du texte -->
+                    <div id="preview-content" class="text-justify text-lg leading-relaxed flex-grow space-y-4 mb-12">
+                        <p class="text-gray-400 italic text-center mt-10">L'aperçu du communiqué s'affichera ici...</p>
+                    </div>
+
+                    <!-- Signature -->
+                    <div id="preview-signature" class="text-right font-bold text-lg text-[#E81C2E] mt-auto">
+                        Les insoumis.es de l'Indre
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Script de logique -->
+    <script>
+        // Récupération des éléments de l'éditeur
+        const titleInput = document.getElementById('input-title');
+        const dateInput = document.getElementById('input-date');
+        const contentInput = document.getElementById('input-content');
+        const signatureInput = document.getElementById('input-signature');
+
+        // Récupération des éléments de l'aperçu
+        const titlePreview = document.getElementById('preview-title');
+        const datePreview = document.getElementById('preview-date');
+        const contentPreview = document.getElementById('preview-content');
+        const signaturePreview = document.getElementById('preview-signature');
+
+        // Fonction pour formater le texte (sauts de ligne et gras)
+        function formatText(text) {
+            if (!text.trim()) return '<p class="text-gray-400 italic text-center mt-10">L\'aperçu du communiqué s\'affichera ici...</p>';
+            
+            // Échapper le HTML pour la sécurité
+            const div = document.createElement('div');
+            div.textContent = text;
+            let escapedText = div.innerHTML;
+
+            // Remplacer **texte** par <strong>texte</strong>
+            escapedText = escapedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+            // Convertir les doubles sauts de ligne en paragraphes
+            return escapedText.split('\n\n').map(p => {
+                // Remplacer les simples sauts de ligne par des <br>
+                const paragraphContent = p.replace(/\n/g, '<br>');
+                return `<p>${paragraphContent}</p>`;
+            }).join('');
+        }
+
+        // Fonction de mise à jour de l'aperçu
+        function updatePreview() {
+            titlePreview.textContent = titleInput.value;
+            datePreview.textContent = dateInput.value;
+            contentPreview.innerHTML = formatText(contentInput.value);
+            signaturePreview.textContent = signatureInput.value;
+        }
+
+        // Écouteurs d'événements pour mettre à jour en temps réel
+        titleInput.addEventListener('input', updatePreview);
+        dateInput.addEventListener('input', updatePreview);
+        contentInput.addEventListener('input', updatePreview);
+        signatureInput.addEventListener('input', updatePreview);
+
+        // Initialiser avec du texte d'exemple issu de votre PDF
+        window.addEventListener('DOMContentLoaded', () => {
+            contentInput.value = `La France insoumise de l'Indre apporte son soutien aux personnels de l'Education Nationale en grève pour protester contre la baisse des moyens dans notre département.
+
+Ces baisses prennent prétexte de la baisse démographique mais vont bien au-delà, entraînant des suppressions de classes et de postes.
+
+Elles pénalisent les conditions d'éducation des jeunes et les conditions de travail des personnels d'éducation. La France devrait plutôt recruter du personnel afin de diminuer le nombre d'élèves par classe qui est un des plus élevés d'Europe.
+
+Cette baisse de moyens est la conséquence logique du budget voté par une coalition à l'Assemblée Nationale, allant du Parti Socialiste aux Républicains en passant évidemment par les macronistes de Rennaissance.
+
+Avec la France insoumise, une autre politique éducative est possible! Nous doterons l'école publique de moyens suffisants, car c'est le préalable à la transmission des savoirs à tous les élèves, et à la réduction des inégalités.
+
+À l'heure du défi climatique et des mutations du système productif, nous avons plus que jamais besoin d'une école publique forte et émancipatrice !`;
+            updatePreview();
+        });
+
+        // Fonction de génération PDF
+        function exportPDF() {
+            const element = document.getElementById('pdf-container');
+            const fileName = titleInput.value ? `CP_${titleInput.value.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf` : 'Communique_de_Presse_LFI36.pdf';
+
+            // Options pour html2pdf
+            const opt = {
+                margin:       0,
+                filename:     fileName,
+                image:        { type: 'jpeg', quality: 1 },
+                html2canvas:  { 
+                    scale: 3, // Haute résolution
+                    useCORS: true,
+                    letterRendering: true 
+                },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            // Ajout d'une classe temporaire pour forcer le format A4 si l'écran est petit
+            const originalWidth = element.style.width;
+            element.style.width = '210mm';
+
+            // Génération
+            html2pdf().set(opt).from(element).save().then(() => {
+                // Restauration du style
+                element.style.width = originalWidth;
+            });
+        }
+    </script>
+</body>
+</html>
