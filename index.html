@@ -210,8 +210,9 @@ Avec la France insoumise, une autre politique éducative est possible! Nous dote
                     }
                 },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-                // Instruction cruciale pour la protection anti-hachage des textes
-                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } 
+                // Retrait de 'avoid-all' pour que le conteneur global puisse s'écouler sur plusieurs pages
+                // tout en conservant la protection individuelle des paragraphes ('css', 'legacy')
+                pagebreak:    { mode: ['css', 'legacy'] } 
             };
 
             html2pdf().set(opt).from(target).save();
