@@ -9,34 +9,26 @@
     <!-- html2pdf.js pour la génération du PDF -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        /* Styles spécifiques pour l'aperçu A4 */
-        .a4-container {
+        /* La "feuille" visuelle sur l'écran */
+        .visual-page {
             background: white;
             color: black;
             font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            /* Dimensions de base, s'adaptera lors de l'export */
-            max-width: 210mm; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
             margin: 0 auto;
-        }
-        
-        .pdf-content {
-            padding: 20mm;
+            width: 210mm; /* Largeur exacte A4 */
             min-height: 297mm;
+            /* Marges visuelles restaurées à 20mm partout */
+            padding: 20mm; 
+            box-sizing: border-box;
         }
 
-        /* Gradient LFI pour le logo textuel */
-        .text-gradient-lfi {
-            background-image: linear-gradient(to bottom right, #E81C2E, #4B1F73);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        @media (max-width: 1024px) {
-            .pdf-content {
+        /* Responsive : s'adapte sur les petits écrans */
+        @media (max-width: 850px) {
+            .visual-page {
+                width: 100%;
                 min-height: auto;
-                padding: 10mm;
+                padding: 15px;
             }
         }
     </style>
@@ -90,9 +82,12 @@
 
         <!-- Panneau d'Aperçu (Droite) -->
         <div class="w-full lg:w-2/3 flex justify-center overflow-x-auto pb-8">
-            <!-- Conteneur qui sera transformé en PDF -->
-            <div id="pdf-container" class="a4-container relative w-full">
-                <div class="pdf-content flex flex-col h-full">
+            
+            <!-- Conteneur visuel pour faire "joli" à l'écran -->
+            <div id="visual-page" class="visual-page">
+                
+                <!-- CIBLE DU PDF : On a retiré le mode flex-col pour garantir les sauts de pages propres -->
+                <div id="pdf-target" class="block" style="width: 100%;">
                     
                     <!-- En-tête LFI Indre avec l'image -->
                     <div class="mb-12 flex justify-center">
@@ -103,21 +98,24 @@
                     <div id="preview-date" class="text-right text-gray-600 italic mb-8 min-h-[1.5rem]"></div>
 
                     <!-- Titre -->
-                    <h1 id="preview-title" class="text-2xl font-bold text-center mb-8 text-[#4B1F73] min-h-[2rem]"></h1>
+                    <h1 id="preview-title" class="text-2xl font-bold text-center mb-8 text-[#4B1F73] min-h-[2rem]" style="page-break-after: avoid; break-after: avoid;"></h1>
 
-                    <!-- Corps du texte -->
-                    <div id="preview-content" class="text-justify text-lg leading-relaxed flex-grow space-y-4 mb-12">
-                        <p class="text-gray-400 italic text-center mt-10">L'aperçu du communiqué s'affichera ici...</p>
-                    </div>
+                    <!-- Conteneur restreint pour le corps du texte et la signature (92% de la largeur, centré) -->
+                    <div class="w-[92%] mx-auto">
+                        <!-- Corps du texte -->
+                        <div id="preview-content" class="text-justify text-lg leading-relaxed space-y-4 mb-12 break-words">
+                            <p class="text-gray-400 italic text-center mt-10">L'aperçu du communiqué s'affichera ici...</p>
+                        </div>
 
-                    <!-- Signature -->
-                    <div id="preview-signature" class="text-right font-bold text-lg text-[#E81C2E] mt-auto">
-                        Les insoumis.es de l'Indre
+                        <!-- Signature -->
+                        <div id="preview-signature" class="text-right font-bold text-lg text-[#E81C2E] mt-12" style="page-break-inside: avoid; break-inside: avoid;">
+                            Les insoumis.es de l'Indre
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
 
+        </div>
     </main>
 
     <!-- Script de logique -->
@@ -147,10 +145,10 @@
             escapedText = escapedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
 
             // Convertir les doubles sauts de ligne en paragraphes
+            // L'ajout de "break-inside: avoid" informe l'outil PDF de ne jamais trancher le paragraphe en plein milieu
             return escapedText.split('\n\n').map(p => {
-                // Remplacer les simples sauts de ligne par des <br>
                 const paragraphContent = p.replace(/\n/g, '<br>');
-                return `<p>${paragraphContent}</p>`;
+                return `<p style="page-break-inside: avoid; break-inside: avoid; margin-bottom: 1rem; display: block;">${paragraphContent}</p>`;
             }).join('');
         }
 
@@ -168,7 +166,7 @@
         contentInput.addEventListener('input', updatePreview);
         signatureInput.addEventListener('input', updatePreview);
 
-        // Initialiser avec du texte d'exemple issu de votre PDF
+        // Initialiser avec du texte d'exemple
         window.addEventListener('DOMContentLoaded', () => {
             contentInput.value = `La France insoumise de l'Indre apporte son soutien aux personnels de l'Education Nationale en grève pour protester contre la baisse des moyens dans notre département.
 
@@ -184,33 +182,39 @@ Avec la France insoumise, une autre politique éducative est possible! Nous dote
             updatePreview();
         });
 
-        // Fonction de génération PDF
+        // Fonction de génération PDF stable et sécurisée
         function exportPDF() {
-            const element = document.getElementById('pdf-container');
+            const target = document.getElementById('pdf-target');
             const fileName = titleInput.value ? `CP_${titleInput.value.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf` : 'Communique_de_Presse_LFI36.pdf';
 
             // Options pour html2pdf
             const opt = {
-                margin:       0,
+                // Marges restaurées à la normale : 20mm partout
+                margin:       20, 
                 filename:     fileName,
-                image:        { type: 'jpeg', quality: 1 },
+                image:        { type: 'jpeg', quality: 1 }, // Qualité max
                 html2canvas:  { 
-                    scale: 3, // Haute résolution
+                    scale: 2, 
                     useCORS: true,
-                    letterRendering: true 
+                    letterRendering: true,
+                    onclone: function(clonedDoc) {
+                        const clonedTarget = clonedDoc.getElementById('pdf-target');
+                        // La largeur disponible restante est de 170mm (A4 210mm - (2 x 20mm de marges))
+                        clonedTarget.style.width = '170mm';
+                        clonedTarget.style.minWidth = '170mm';
+                        clonedTarget.style.maxWidth = '170mm';
+                        clonedTarget.style.margin = '0';
+                        clonedTarget.style.padding = '0';
+                        // S'assure que le mode flex est bien retiré pour protéger les sauts de page
+                        clonedTarget.style.display = 'block'; 
+                    }
                 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+                // Instruction cruciale pour la protection anti-hachage des textes
+                pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] } 
             };
 
-            // Ajout d'une classe temporaire pour forcer le format A4 si l'écran est petit
-            const originalWidth = element.style.width;
-            element.style.width = '210mm';
-
-            // Génération
-            html2pdf().set(opt).from(element).save().then(() => {
-                // Restauration du style
-                element.style.width = originalWidth;
-            });
+            html2pdf().set(opt).from(target).save();
         }
     </script>
 </body>
